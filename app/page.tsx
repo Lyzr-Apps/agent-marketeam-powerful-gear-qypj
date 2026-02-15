@@ -8,7 +8,8 @@ import {
   FiChevronDown, FiCheck, FiX,
   FiSearch, FiFileText, FiImage, FiBarChart2, FiLayout,
   FiTag, FiTarget, FiTrendingUp, FiAlertCircle,
-  FiRefreshCw, FiClipboard, FiZap
+  FiRefreshCw, FiClipboard, FiZap, FiClock, FiInfo,
+  FiPlay, FiArrowRight
 } from 'react-icons/fi'
 
 // ---------------------------------------------------------------------------
@@ -16,6 +17,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const MARKETING_COORDINATOR_ID = '6991e15a83535abf424bf440'
+const GRAPHICS_GENERATOR_ID = '6991e1426a46d7921f7bf5a4'
 
 const AGENTS = [
   { id: '6991e15a83535abf424bf440', name: 'Marketing Coordinator', role: 'Orchestrates the full pipeline' },
@@ -26,6 +28,7 @@ const AGENTS = [
 
 const CONTENT_TYPES = ['Blog Post', 'Social Media', 'Ad Copy', 'Email']
 const TONES = ['Professional', 'Casual', 'Persuasive', 'Informative']
+const IMAGE_TYPES = ['Blog Header', 'Social Media Post', 'Banner', 'Promotional Visual', 'Infographic']
 const LOADING_MESSAGES = [
   'Drafting content...',
   'Analyzing SEO...',
@@ -79,6 +82,73 @@ interface ArtifactFile {
   name?: string
   format_type?: string
 }
+
+interface HistoryEntry {
+  id: string
+  title: string
+  contentType: string
+  timestamp: string
+  data: MarketingResponse
+  images: ArtifactFile[]
+}
+
+interface TemplateData {
+  title: string
+  description: string
+  topic: string
+  contentType: string
+  tone: string
+  audience: string
+  keywords: string[]
+  wordCount: number
+}
+
+// ---------------------------------------------------------------------------
+// Templates
+// ---------------------------------------------------------------------------
+
+const TEMPLATES: TemplateData[] = [
+  {
+    title: 'SaaS Product Launch Blog',
+    description: 'A comprehensive blog post to announce and drive interest in a new SaaS product launch.',
+    topic: 'Product Launch Announcement',
+    contentType: 'Blog Post',
+    tone: 'Professional',
+    audience: 'Tech-savvy decision makers and early adopters',
+    keywords: ['product launch', 'SaaS', 'innovation'],
+    wordCount: 1200,
+  },
+  {
+    title: 'Social Media Campaign',
+    description: 'Engaging social media content designed to boost brand visibility and audience engagement.',
+    topic: 'Brand Awareness Campaign',
+    contentType: 'Social Media',
+    tone: 'Casual',
+    audience: 'Young professionals aged 25-35 on Instagram and LinkedIn',
+    keywords: ['brand awareness', 'social media', 'engagement'],
+    wordCount: 400,
+  },
+  {
+    title: 'Email Newsletter',
+    description: 'A structured email newsletter to keep existing customers informed about product updates.',
+    topic: 'Monthly Product Updates',
+    contentType: 'Email',
+    tone: 'Informative',
+    audience: 'Existing customers and subscribers',
+    keywords: ['product update', 'newsletter', 'features'],
+    wordCount: 600,
+  },
+  {
+    title: 'Conversion Ad Copy',
+    description: 'Compelling ad copy that creates urgency and drives conversions for a limited-time promotion.',
+    topic: 'Limited Time Offer Promotion',
+    contentType: 'Ad Copy',
+    tone: 'Persuasive',
+    audience: 'Price-conscious shoppers looking for deals',
+    keywords: ['limited offer', 'discount', 'save now'],
+    wordCount: 300,
+  },
+]
 
 // ---------------------------------------------------------------------------
 // Sample Data
@@ -194,6 +264,57 @@ function safeParseResult(result: AIAgentResponse | null): MarketingResponse | nu
 }
 
 // ---------------------------------------------------------------------------
+// Extract artifact files from various paths in the response
+// ---------------------------------------------------------------------------
+
+function extractArtifactFiles(result: any): ArtifactFile[] {
+  const collected: ArtifactFile[] = []
+
+  // Path 1: top-level module_outputs
+  if (Array.isArray(result?.module_outputs?.artifact_files)) {
+    collected.push(...result.module_outputs.artifact_files)
+  }
+
+  // Path 2: response.module_outputs
+  if (Array.isArray(result?.response?.module_outputs?.artifact_files)) {
+    collected.push(...result.response.module_outputs.artifact_files)
+  }
+
+  // Path 3: response.result.module_outputs
+  if (Array.isArray(result?.response?.result?.module_outputs?.artifact_files)) {
+    collected.push(...result.response.result.module_outputs.artifact_files)
+  }
+
+  // Path 4: Scan for image URLs in raw_response or stringified result
+  const rawStr = typeof result?.raw_response === 'string'
+    ? result.raw_response
+    : typeof result?.response === 'string'
+      ? result.response
+      : ''
+  if (rawStr) {
+    const imageUrlRegex = /https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^\s"'<>]*)?/gi
+    const matches = rawStr.match(imageUrlRegex)
+    if (Array.isArray(matches)) {
+      const existingUrls = new Set(collected.map(f => f?.file_url))
+      matches.forEach((url: string) => {
+        if (!existingUrls.has(url)) {
+          collected.push({ file_url: url, name: url.split('/').pop() ?? 'image', format_type: 'image' })
+          existingUrls.add(url)
+        }
+      })
+    }
+  }
+
+  // Deduplicate by file_url
+  const seen = new Set<string>()
+  return collected.filter(f => {
+    if (!f?.file_url || seen.has(f.file_url)) return false
+    seen.add(f.file_url)
+    return true
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
@@ -279,6 +400,50 @@ function InfoCard({ icon: Icon, title, children }: { icon: React.ComponentType<{
   )
 }
 
+function ImageWithFallback({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [failed, setFailed] = useState(false)
+
+  if (failed || !src) {
+    return (
+      <div className={`flex flex-col items-center justify-center bg-slate-800 text-slate-500 ${className ?? 'w-full h-48'}`}>
+        <FiImage size={32} className="mb-2" />
+        <span className="text-xs">Image failed to load</span>
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
+function AgentPipelineGrid({ activeAgentId, resultData }: { activeAgentId: string | null; resultData: MarketingResponse | null }) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Agent Pipeline</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {AGENTS.map(agent => {
+          const isActive = activeAgentId === agent.id
+          return (
+            <div key={agent.id} className={`rounded-md border p-2 transition-all duration-300 ${isActive ? 'border-indigo-500/60 bg-indigo-500/10' : 'border-slate-800 bg-slate-800/30'}`}>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-indigo-400 animate-pulse' : resultData ? 'bg-green-500' : 'bg-slate-600'}`} />
+                <span className="text-[10px] font-semibold text-slate-300 truncate">{agent.name}</span>
+              </div>
+              <p className="text-[9px] text-slate-500 leading-tight">{agent.role}</p>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
@@ -309,12 +474,23 @@ export default function Page() {
   const [artifactFiles, setArtifactFiles] = useState<ArtifactFile[]>([])
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
 
+  // History state
+  const [history, setHistory] = useState<HistoryEntry[]>([])
+
+  // Standalone image generator state
+  const [imagePrompt, setImagePrompt] = useState('')
+  const [imageType, setImageType] = useState('Blog Header')
+  const [generatingImage, setGeneratingImage] = useState(false)
+  const [standaloneImages, setStandaloneImages] = useState<ArtifactFile[]>([])
+  const [imageError, setImageError] = useState<string | null>(null)
+
   const loadingInterval = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Computed display data
   const displayData = sampleMode && !resultData ? SAMPLE_RESULT : resultData
   const displayImages = sampleMode && artifactFiles.length === 0 && !resultData ? SAMPLE_IMAGES : artifactFiles
   const hasResults = displayData !== null
+  const showResultsPanel = hasResults || loading || standaloneImages.length > 0
 
   // Apply sample data to form
   const applySample = useCallback((on: boolean) => {
@@ -338,6 +514,26 @@ export default function Page() {
       setBrandNotes('')
     }
   }, [resultData])
+
+  // Apply template to form
+  const applyTemplate = useCallback((template: TemplateData) => {
+    setTopic(template.topic)
+    setContentType(template.contentType)
+    setTone(template.tone)
+    setTargetAudience(template.audience)
+    setKeywords([...template.keywords])
+    setWordCount(template.wordCount)
+    setBrandNotes('')
+    setSidebarPage('dashboard')
+  }, [])
+
+  // Load history entry
+  const loadHistoryEntry = useCallback((entry: HistoryEntry) => {
+    setResultData(entry.data)
+    setArtifactFiles(Array.isArray(entry.images) ? entry.images : [])
+    setActiveTab('content')
+    setSidebarPage('dashboard')
+  }, [])
 
   // Add keyword
   const addKeyword = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -456,12 +652,24 @@ Please create a complete marketing content package including written content, SE
         if (parsed) {
           setResultData(parsed)
           setActiveTab('content')
+
+          // Extract images from multiple paths
+          const files = extractArtifactFiles(result)
+          setArtifactFiles(files as ArtifactFile[])
+
+          // Add to history
+          const entry: HistoryEntry = {
+            id: Date.now().toString(),
+            title: parsed.project_title ?? topic,
+            contentType: contentType,
+            timestamp: new Date().toLocaleString(),
+            data: parsed,
+            images: files as ArtifactFile[],
+          }
+          setHistory(prev => [entry, ...prev])
         } else {
           setError('Received a response but could not parse the marketing data. The agent may have returned an unexpected format.')
         }
-
-        const files = Array.isArray(result?.module_outputs?.artifact_files) ? result.module_outputs.artifact_files : []
-        setArtifactFiles(files as ArtifactFile[])
       } else {
         setError(result?.error || result?.response?.message || 'Failed to generate content. Please try again.')
       }
@@ -473,6 +681,39 @@ Please create a complete marketing content package including written content, SE
       setActiveAgentId(null)
     }
   }, [topic, contentType, tone, targetAudience, keywords, wordCount, brandNotes])
+
+  // Standalone image generation
+  const generateStandaloneImage = useCallback(async () => {
+    if (!imagePrompt.trim()) {
+      setImageError('Please enter an image description.')
+      return
+    }
+    setImageError(null)
+    setGeneratingImage(true)
+    setActiveAgentId(GRAPHICS_GENERATOR_ID)
+
+    const message = `Create a ${imageType} graphic for: ${imagePrompt}. Make it professional, visually appealing, and suitable for marketing use.`
+
+    try {
+      const result = await callAIAgent(message, GRAPHICS_GENERATOR_ID)
+      if (result?.success) {
+        const allFiles = extractArtifactFiles(result) as ArtifactFile[]
+
+        if (allFiles.length > 0) {
+          setStandaloneImages(prev => [...allFiles, ...prev])
+        } else {
+          setImageError('Image was generated but no artifact files were returned. The image may still be processing.')
+        }
+      } else {
+        setImageError(result?.error || 'Failed to generate image. Please try again.')
+      }
+    } catch (err: any) {
+      setImageError(err?.message || 'An unexpected error occurred.')
+    } finally {
+      setGeneratingImage(false)
+      setActiveAgentId(null)
+    }
+  }, [imagePrompt, imageType])
 
   // Recommendations as array
   const recommendations: string[] = displayData?.seo_analysis?.recommendations
@@ -487,7 +728,7 @@ Please create a complete marketing content package including written content, SE
           <FiZap size={16} className="text-white" />
         </div>
         <SidebarIcon icon={FiLayout} label="Dashboard" active={sidebarPage === 'dashboard'} onClick={() => setSidebarPage('dashboard')} />
-        <SidebarIcon icon={FiRefreshCw} label="History" active={sidebarPage === 'history'} onClick={() => setSidebarPage('history')} />
+        <SidebarIcon icon={FiClock} label="History" active={sidebarPage === 'history'} onClick={() => setSidebarPage('history')} />
         <SidebarIcon icon={FiClipboard} label="Templates" active={sidebarPage === 'templates'} onClick={() => setSidebarPage('templates')} />
         <div className="flex-1" />
         <SidebarIcon icon={FiSettings} label="Settings" active={sidebarPage === 'settings'} onClick={() => setSidebarPage('settings')} />
@@ -496,208 +737,364 @@ Please create a complete marketing content package including written content, SE
       {/* ---- MAIN AREA ---- */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
 
-        {/* ---- CENTER: Form workspace ---- */}
+        {/* ---- CENTER: Main workspace ---- */}
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">Marketing Team Hub</h1>
-              <p className="text-sm text-slate-400 mt-0.5">Create complete marketing content packages with AI-powered agents</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <span className="text-xs text-slate-400">Sample Data</span>
-                <button
-                  role="switch"
-                  aria-checked={sampleMode}
-                  onClick={() => applySample(!sampleMode)}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${sampleMode ? 'bg-indigo-600' : 'bg-slate-700'}`}
-                >
-                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform duration-200 ${sampleMode ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-                </button>
-              </label>
-            </div>
-          </div>
 
-          {/* Error banner */}
-          {error && (
-            <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 flex items-start gap-2">
-              <FiAlertCircle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm text-red-300">{error}</p>
-              </div>
-              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300"><FiX size={14} /></button>
-            </div>
-          )}
-
-          {/* Content brief form */}
-          <div className="space-y-5 max-w-2xl">
-            {/* Topic */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Topic</label>
-              <input
-                type="text"
-                placeholder="Enter your content topic..."
-                value={topic}
-                onChange={e => setTopic(e.target.value)}
-                className="w-full rounded-lg bg-slate-800/60 border border-slate-700/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
-              />
-            </div>
-
-            {/* Content type + Tone row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Content Type</label>
-                <div className="relative">
-                  <select
-                    value={contentType}
-                    onChange={e => setContentType(e.target.value)}
-                    className="w-full rounded-lg bg-slate-800/60 border border-slate-700/60 px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 appearance-none transition-all"
-                  >
-                    {CONTENT_TYPES.map(ct => <option key={ct} value={ct}>{ct}</option>)}
-                  </select>
-                  <FiChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+          {/* ============================================================ */}
+          {/* DASHBOARD PAGE */}
+          {/* ============================================================ */}
+          {sidebarPage === 'dashboard' && (
+            <>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-white tracking-tight">Marketing Team Hub</h1>
+                  <p className="text-sm text-slate-400 mt-0.5">Create complete marketing content packages with AI-powered agents</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <span className="text-xs text-slate-400">Sample Data</span>
+                    <button
+                      role="switch"
+                      aria-checked={sampleMode}
+                      onClick={() => applySample(!sampleMode)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 ${sampleMode ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                    >
+                      <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform duration-200 ${sampleMode ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                    </button>
+                  </label>
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Tone</label>
-                <div className="flex gap-1.5 flex-wrap">
-                  {TONES.map(t => (
+
+              {/* Error banner */}
+              {error && (
+                <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 flex items-start gap-2">
+                  <FiAlertCircle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-red-300">{error}</p>
+                  </div>
+                  <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300"><FiX size={14} /></button>
+                </div>
+              )}
+
+              {/* Content brief form */}
+              <div className="space-y-5 max-w-2xl">
+                {/* Topic */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Topic</label>
+                  <input
+                    type="text"
+                    placeholder="Enter your content topic..."
+                    value={topic}
+                    onChange={e => setTopic(e.target.value)}
+                    className="w-full rounded-lg bg-slate-800/60 border border-slate-700/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
+                  />
+                </div>
+
+                {/* Content type + Tone row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Content Type</label>
+                    <div className="relative">
+                      <select
+                        value={contentType}
+                        onChange={e => setContentType(e.target.value)}
+                        className="w-full rounded-lg bg-slate-800/60 border border-slate-700/60 px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 appearance-none transition-all"
+                      >
+                        {CONTENT_TYPES.map(ct => <option key={ct} value={ct}>{ct}</option>)}
+                      </select>
+                      <FiChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Tone</label>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {TONES.map(t => (
+                        <button
+                          key={t}
+                          onClick={() => setTone(t)}
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${tone === t ? 'bg-indigo-600 text-white shadow shadow-indigo-600/30' : 'bg-slate-800/60 text-slate-400 border border-slate-700/60 hover:text-slate-200 hover:border-slate-600'}`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Target Audience */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    <span className="inline-flex items-center gap-1"><FiTarget size={11} /> Target Audience</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Describe your target audience..."
+                    value={targetAudience}
+                    onChange={e => setTargetAudience(e.target.value)}
+                    className="w-full rounded-lg bg-slate-800/60 border border-slate-700/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 resize-none transition-all"
+                  />
+                </div>
+
+                {/* Keywords */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    <span className="inline-flex items-center gap-1"><FiTag size={11} /> Primary Keywords</span>
+                  </label>
+                  <div className="rounded-lg bg-slate-800/60 border border-slate-700/60 px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500/50 focus-within:border-indigo-500/50 transition-all">
+                    <div className="flex flex-wrap gap-1.5 mb-1.5">
+                      {keywords.map(kw => <KeywordTag key={kw} keyword={kw} onRemove={() => removeKeyword(kw)} />)}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder={keywords.length === 0 ? 'Type a keyword and press Enter...' : 'Add another...'}
+                      value={keywordInput}
+                      onChange={e => setKeywordInput(e.target.value)}
+                      onKeyDown={addKeyword}
+                      className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Word count slider */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Word Count: <span className="text-indigo-400">{wordCount}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={300}
+                    max={2000}
+                    step={50}
+                    value={wordCount}
+                    onChange={e => setWordCount(parseInt(e.target.value, 10))}
+                    className="w-full accent-indigo-500"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
+                    <span>300</span><span>1000</span><span>2000</span>
+                  </div>
+                </div>
+
+                {/* Brand notes */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Brand Voice Notes <span className="text-slate-600 font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Any brand guidelines or voice notes..."
+                    value={brandNotes}
+                    onChange={e => setBrandNotes(e.target.value)}
+                    className="w-full rounded-lg bg-slate-800/60 border border-slate-700/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 resize-none transition-all"
+                  />
+                </div>
+
+                {/* Generate button */}
+                <button
+                  onClick={generateContent}
+                  disabled={loading || !topic.trim()}
+                  className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold text-sm shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                >
+                  {loading ? (
+                    <>
+                      <FiRefreshCw size={16} className="animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <FiZap size={16} />
+                      Create Marketing Content
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Agent info section */}
+              <div className="mt-8 max-w-2xl">
+                <AgentPipelineGrid activeAgentId={activeAgentId} resultData={resultData} />
+              </div>
+            </>
+          )}
+
+          {/* ============================================================ */}
+          {/* HISTORY PAGE */}
+          {/* ============================================================ */}
+          {sidebarPage === 'history' && (
+            <>
+              <div className="mb-6">
+                <h1 className="text-2xl font-bold text-white tracking-tight">Generation History</h1>
+                <p className="text-sm text-slate-400 mt-0.5">Review and reload your previously generated marketing content packages</p>
+              </div>
+
+              {history.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-800/60 border border-slate-700/40 flex items-center justify-center mb-4">
+                    <FiRefreshCw size={24} className="text-slate-500" />
+                  </div>
+                  <h3 className="text-base font-semibold text-slate-400 mb-1">No generation history yet</h3>
+                  <p className="text-xs text-slate-600 max-w-xs">Create your first marketing content package to see it here.</p>
+                  <button
+                    onClick={() => setSidebarPage('dashboard')}
+                    className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-xs font-medium text-indigo-300 hover:bg-indigo-600/30 transition-all"
+                  >
+                    <FiArrowRight size={13} /> Go to Dashboard
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3 max-w-2xl">
+                  {history.map(entry => (
                     <button
-                      key={t}
-                      onClick={() => setTone(t)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${tone === t ? 'bg-indigo-600 text-white shadow shadow-indigo-600/30' : 'bg-slate-800/60 text-slate-400 border border-slate-700/60 hover:text-slate-200 hover:border-slate-600'}`}
+                      key={entry.id}
+                      onClick={() => loadHistoryEntry(entry)}
+                      className="w-full text-left rounded-lg border border-slate-700/60 bg-slate-800/40 p-4 hover:bg-slate-800/70 hover:border-slate-600 transition-all duration-200 group"
                     >
-                      {t}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm font-semibold text-slate-200 truncate group-hover:text-white transition-colors">{entry.title}</h3>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-medium border border-indigo-500/20">
+                              <FiFileText size={9} /> {entry.contentType}
+                            </span>
+                            <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                              <FiClock size={9} /> {entry.timestamp}
+                            </span>
+                          </div>
+                          {entry.data?.content_brief_summary && (
+                            <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">{entry.data.content_brief_summary}</p>
+                          )}
+                        </div>
+                        <div className="flex-shrink-0 flex items-center gap-1.5 text-slate-500 group-hover:text-indigo-400 transition-colors">
+                          <span className="text-[10px] font-medium">Load</span>
+                          <FiArrowRight size={12} />
+                        </div>
+                      </div>
+                      {Array.isArray(entry.images) && entry.images.length > 0 && (
+                        <div className="mt-2 flex items-center gap-1 text-[10px] text-slate-500">
+                          <FiImage size={9} /> {entry.images.length} image{entry.images.length > 1 ? 's' : ''}
+                        </div>
+                      )}
                     </button>
                   ))}
                 </div>
-              </div>
-            </div>
-
-            {/* Target Audience */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                <span className="inline-flex items-center gap-1"><FiTarget size={11} /> Target Audience</span>
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Describe your target audience..."
-                value={targetAudience}
-                onChange={e => setTargetAudience(e.target.value)}
-                className="w-full rounded-lg bg-slate-800/60 border border-slate-700/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 resize-none transition-all"
-              />
-            </div>
-
-            {/* Keywords */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                <span className="inline-flex items-center gap-1"><FiTag size={11} /> Primary Keywords</span>
-              </label>
-              <div className="rounded-lg bg-slate-800/60 border border-slate-700/60 px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500/50 focus-within:border-indigo-500/50 transition-all">
-                <div className="flex flex-wrap gap-1.5 mb-1.5">
-                  {keywords.map(kw => <KeywordTag key={kw} keyword={kw} onRemove={() => removeKeyword(kw)} />)}
-                </div>
-                <input
-                  type="text"
-                  placeholder={keywords.length === 0 ? 'Type a keyword and press Enter...' : 'Add another...'}
-                  value={keywordInput}
-                  onChange={e => setKeywordInput(e.target.value)}
-                  onKeyDown={addKeyword}
-                  className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Word count slider */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                Word Count: <span className="text-indigo-400">{wordCount}</span>
-              </label>
-              <input
-                type="range"
-                min={300}
-                max={2000}
-                step={50}
-                value={wordCount}
-                onChange={e => setWordCount(parseInt(e.target.value, 10))}
-                className="w-full accent-indigo-500"
-              />
-              <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
-                <span>300</span><span>1000</span><span>2000</span>
-              </div>
-            </div>
-
-            {/* Brand notes */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
-                Brand Voice Notes <span className="text-slate-600 font-normal">(optional)</span>
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Any brand guidelines or voice notes..."
-                value={brandNotes}
-                onChange={e => setBrandNotes(e.target.value)}
-                className="w-full rounded-lg bg-slate-800/60 border border-slate-700/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 resize-none transition-all"
-              />
-            </div>
-
-            {/* Generate button */}
-            <button
-              onClick={generateContent}
-              disabled={loading || !topic.trim()}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold text-sm shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/40 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              {loading ? (
-                <>
-                  <FiRefreshCw size={16} className="animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <FiZap size={16} />
-                  Create Marketing Content
-                </>
               )}
-            </button>
-          </div>
+            </>
+          )}
 
-          {/* Agent info section */}
-          <div className="mt-8 max-w-2xl">
-            <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Agent Pipeline</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {AGENTS.map(agent => {
-                  const isActive = activeAgentId === agent.id
-                  return (
-                    <div key={agent.id} className={`rounded-md border p-2 transition-all duration-300 ${isActive ? 'border-indigo-500/60 bg-indigo-500/10' : 'border-slate-800 bg-slate-800/30'}`}>
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-indigo-400 animate-pulse' : resultData ? 'bg-green-500' : 'bg-slate-600'}`} />
-                        <span className="text-[10px] font-semibold text-slate-300 truncate">{agent.name}</span>
-                      </div>
-                      <p className="text-[9px] text-slate-500 leading-tight">{agent.role}</p>
-                    </div>
-                  )
-                })}
+          {/* ============================================================ */}
+          {/* TEMPLATES PAGE */}
+          {/* ============================================================ */}
+          {sidebarPage === 'templates' && (
+            <>
+              <div className="mb-6">
+                <h1 className="text-2xl font-bold text-white tracking-tight">Quick Templates</h1>
+                <p className="text-sm text-slate-400 mt-0.5">Pre-built content brief templates to get started quickly</p>
               </div>
-            </div>
-          </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+                {TEMPLATES.map((template, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-5 hover:bg-slate-800/60 hover:border-slate-600 transition-all duration-200 flex flex-col"
+                  >
+                    <h3 className="text-sm font-semibold text-white mb-2">{template.title}</h3>
+                    <p className="text-xs text-slate-400 mb-3 flex-1">{template.description}</p>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-medium border border-indigo-500/20">
+                        <FiFileText size={9} /> {template.contentType}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 text-[10px] font-medium border border-purple-500/20">
+                        {template.tone}
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-400 text-[10px] font-medium border border-slate-600/30">
+                        {template.wordCount} words
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {template.keywords.map(kw => (
+                        <span key={kw} className="px-1.5 py-0.5 rounded bg-slate-700/40 text-[10px] text-slate-500">{kw}</span>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => applyTemplate(template)}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-xs font-medium text-indigo-300 hover:bg-indigo-600/30 transition-all"
+                    >
+                      <FiPlay size={11} /> Use Template
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* ============================================================ */}
+          {/* SETTINGS PAGE */}
+          {/* ============================================================ */}
+          {sidebarPage === 'settings' && (
+            <>
+              <div className="mb-6">
+                <h1 className="text-2xl font-bold text-white tracking-tight">Settings</h1>
+                <p className="text-sm text-slate-400 mt-0.5">Application configuration and agent pipeline status</p>
+              </div>
+
+              <div className="space-y-6 max-w-2xl">
+                {/* App Info */}
+                <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <FiInfo size={14} className="text-indigo-400" />
+                    <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Application Info</h3>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">Application</span>
+                      <span className="text-sm text-slate-200 font-medium">Marketing Team Hub</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">Version</span>
+                      <span className="text-sm text-slate-200 font-medium">1.0.0</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">Framework</span>
+                      <span className="text-sm text-slate-200 font-medium">Next.js + Lyzr Agents</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">Agents</span>
+                      <span className="text-sm text-slate-200 font-medium">{AGENTS.length} agents</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Agent Pipeline Status */}
+                <AgentPipelineGrid activeAgentId={activeAgentId} resultData={resultData} />
+
+                {/* Configuration note */}
+                <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-4">
+                  <div className="flex items-start gap-3">
+                    <FiSettings size={14} className="text-slate-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm text-slate-400">Agent configuration is managed through Lyzr Studio.</p>
+                      <p className="text-xs text-slate-600 mt-1">Visit the Lyzr Studio dashboard to modify agent behavior, system prompts, and response schemas.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </main>
 
         {/* ---- RIGHT: Results panel ---- */}
-        <aside className={`border-l border-slate-800 bg-slate-900/50 flex flex-col transition-all duration-300 ${hasResults || loading ? 'w-full lg:w-[520px] xl:w-[580px]' : 'w-0 lg:w-0 overflow-hidden'}`}>
+        <aside className={`border-l border-slate-800 bg-slate-900/50 flex flex-col transition-all duration-300 ${showResultsPanel ? 'w-full lg:w-[520px] xl:w-[580px]' : 'w-0 lg:w-0 overflow-hidden'}`}>
           {loading && (
             <div className="flex-1 p-6">
               <LoadingOverlay messageIndex={loadingMsgIdx} />
             </div>
           )}
 
-          {!loading && hasResults && (
+          {!loading && (hasResults || standaloneImages.length > 0) && (
             <>
               {/* Project header */}
               <div className="px-5 pt-5 pb-3 border-b border-slate-800">
-                <h2 className="text-lg font-bold text-white truncate">{displayData?.project_title ?? 'Marketing Package'}</h2>
-                <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{displayData?.content_brief_summary ?? ''}</p>
+                <h2 className="text-lg font-bold text-white truncate">{displayData?.project_title ?? (standaloneImages.length > 0 ? 'Graphics Studio' : 'Marketing Package')}</h2>
+                <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{displayData?.content_brief_summary ?? (standaloneImages.length > 0 ? 'Standalone generated images' : '')}</p>
                 {displayData?.status && (
                   <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 text-[10px] font-medium border border-green-500/20">
                     <FiCheck size={10} /> {displayData.status}
@@ -719,6 +1116,9 @@ Please create a complete marketing content package including written content, SE
                   >
                     <tab.icon size={13} />
                     {tab.label}
+                    {tab.key === 'graphics' && standaloneImages.length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 text-[9px] font-medium">{standaloneImages.length}</span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -727,7 +1127,7 @@ Please create a complete marketing content package including written content, SE
               <div className="flex-1 overflow-y-auto p-5">
 
                 {/* ---- CONTENT TAB ---- */}
-                {activeTab === 'content' && (
+                {activeTab === 'content' && hasResults && (
                   <div className="space-y-4">
                     {/* Title */}
                     <div>
@@ -787,8 +1187,16 @@ Please create a complete marketing content package including written content, SE
                   </div>
                 )}
 
+                {activeTab === 'content' && !hasResults && (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <FiFileText size={28} className="text-slate-600 mb-2" />
+                    <p className="text-sm text-slate-500">No content generated yet</p>
+                    <p className="text-xs text-slate-600 mt-1">Run the content pipeline from the dashboard to see results here</p>
+                  </div>
+                )}
+
                 {/* ---- SEO TAB ---- */}
-                {activeTab === 'seo' && (
+                {activeTab === 'seo' && hasResults && (
                   <div className="space-y-4">
                     {/* Score */}
                     <div className="flex justify-center py-2">
@@ -848,17 +1256,134 @@ Please create a complete marketing content package including written content, SE
                   </div>
                 )}
 
+                {activeTab === 'seo' && !hasResults && (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <FiBarChart2 size={28} className="text-slate-600 mb-2" />
+                    <p className="text-sm text-slate-500">No SEO analysis available</p>
+                    <p className="text-xs text-slate-600 mt-1">Run the content pipeline from the dashboard to see SEO results</p>
+                  </div>
+                )}
+
                 {/* ---- GRAPHICS TAB ---- */}
                 {activeTab === 'graphics' && (
                   <div className="space-y-4">
-                    {/* Generated images */}
+
+                    {/* Standalone Image Generator */}
+                    <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <FiImage size={14} className="text-indigo-400" />
+                        <h4 className="text-xs font-semibold text-indigo-300 uppercase tracking-wider">Generate Graphics</h4>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Image Prompt</label>
+                          <input
+                            type="text"
+                            placeholder="Describe the image you want to create..."
+                            value={imagePrompt}
+                            onChange={e => setImagePrompt(e.target.value)}
+                            className="w-full rounded-lg bg-slate-800/60 border border-slate-700/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
+                          />
+                        </div>
+                        <div className="flex gap-3 items-end">
+                          <div className="flex-1">
+                            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Image Type</label>
+                            <div className="relative">
+                              <select
+                                value={imageType}
+                                onChange={e => setImageType(e.target.value)}
+                                className="w-full rounded-lg bg-slate-800/60 border border-slate-700/60 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none transition-all"
+                              >
+                                {IMAGE_TYPES.map(it => <option key={it} value={it}>{it}</option>)}
+                              </select>
+                              <FiChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                            </div>
+                          </div>
+                          <button
+                            onClick={generateStandaloneImage}
+                            disabled={generatingImage || !imagePrompt.trim()}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 hover:shadow-indigo-600/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                          >
+                            {generatingImage ? (
+                              <>
+                                <FiRefreshCw size={13} className="animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <FiImage size={13} />
+                                Generate Image
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      {imageError && (
+                        <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-2 flex items-start gap-2">
+                          <FiAlertCircle size={13} className="text-red-400 mt-0.5 flex-shrink-0" />
+                          <p className="text-xs text-red-300">{imageError}</p>
+                          <button onClick={() => setImageError(null)} className="text-red-400 hover:text-red-300 ml-auto"><FiX size={12} /></button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Standalone generated images */}
+                    {standaloneImages.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Standalone Generated Images</h4>
+                        <div className="grid grid-cols-1 gap-3">
+                          {standaloneImages.map((img, idx) => (
+                            <div key={`standalone-${idx}`} className="rounded-lg border border-slate-700/60 bg-slate-800/40 overflow-hidden">
+                              {img?.file_url && (
+                                <div className="relative bg-slate-900">
+                                  <ImageWithFallback
+                                    src={img.file_url}
+                                    alt={img?.name ?? 'Generated image'}
+                                    className="w-full h-auto max-h-72 object-contain"
+                                  />
+                                </div>
+                              )}
+                              <div className="p-3 flex items-center justify-between">
+                                <div>
+                                  {img?.name && <p className="text-xs text-slate-400">{img.name}</p>}
+                                  {img?.format_type && <p className="text-[10px] text-slate-600">{img.format_type}</p>}
+                                </div>
+                                <a
+                                  href={img?.file_url ?? '#'}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  download
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-slate-700/50 text-xs text-indigo-400 hover:text-indigo-300 hover:bg-slate-700 transition-all"
+                                >
+                                  <FiDownload size={11} /> Download
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Divider between standalone and pipeline images */}
+                    {standaloneImages.length > 0 && Array.isArray(displayImages) && displayImages.length > 0 && (
+                      <div className="flex items-center gap-3 py-1">
+                        <div className="flex-1 h-px bg-slate-700/60" />
+                        <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">From Content Pipeline</span>
+                        <div className="flex-1 h-px bg-slate-700/60" />
+                      </div>
+                    )}
+
+                    {/* Pipeline images */}
                     {Array.isArray(displayImages) && displayImages.length > 0 && (
                       <div className="space-y-4">
+                        {standaloneImages.length === 0 && (
+                          <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Pipeline Generated Images</h4>
+                        )}
                         {displayImages.map((img, idx) => (
-                          <div key={idx} className="rounded-lg border border-slate-700/60 bg-slate-800/40 overflow-hidden">
+                          <div key={`pipeline-${idx}`} className="rounded-lg border border-slate-700/60 bg-slate-800/40 overflow-hidden">
                             {img?.file_url && (
                               <div className="relative bg-slate-900">
-                                <img
+                                <ImageWithFallback
                                   src={img.file_url}
                                   alt={displayData?.graphics?.suggested_alt_text ?? 'Generated image'}
                                   className="w-full h-auto max-h-72 object-contain"
@@ -882,78 +1407,84 @@ Please create a complete marketing content package including written content, SE
                       </div>
                     )}
 
-                    {/* Graphics metadata */}
-                    <InfoCard icon={FiImage} title="Image Description">
-                      <p className="text-sm text-slate-300">{displayData?.graphics?.image_description ?? 'No description available'}</p>
-                    </InfoCard>
+                    {/* Graphics metadata from pipeline */}
+                    {hasResults && (
+                      <>
+                        <InfoCard icon={FiImage} title="Image Description">
+                          <p className="text-sm text-slate-300">{displayData?.graphics?.image_description ?? 'No description available'}</p>
+                        </InfoCard>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3">
-                        <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Type</h4>
-                        <p className="text-sm text-slate-300">{displayData?.graphics?.image_type ?? 'N/A'}</p>
-                      </div>
-                      <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3">
-                        <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Dimensions</h4>
-                        <p className="text-sm text-slate-300">{displayData?.graphics?.dimensions ?? 'N/A'}</p>
-                      </div>
-                    </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3">
+                            <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Type</h4>
+                            <p className="text-sm text-slate-300">{displayData?.graphics?.image_type ?? 'N/A'}</p>
+                          </div>
+                          <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3">
+                            <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Dimensions</h4>
+                            <p className="text-sm text-slate-300">{displayData?.graphics?.dimensions ?? 'N/A'}</p>
+                          </div>
+                        </div>
 
-                    <InfoCard icon={FiEdit} title="Design Notes">
-                      {renderMarkdown(displayData?.graphics?.design_notes ?? '')}
-                    </InfoCard>
+                        <InfoCard icon={FiEdit} title="Design Notes">
+                          {renderMarkdown(displayData?.graphics?.design_notes ?? '')}
+                        </InfoCard>
 
-                    <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Alt Text</h4>
-                        <button
-                          onClick={() => handleCopy(displayData?.graphics?.suggested_alt_text ?? '', 'alt')}
-                          className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-indigo-400 transition-colors"
-                        >
-                          {copiedField === 'alt' ? <FiCheck size={10} /> : <FiCopy size={10} />}
-                        </button>
-                      </div>
-                      <p className="text-xs text-slate-400 italic">{displayData?.graphics?.suggested_alt_text ?? 'N/A'}</p>
-                    </div>
+                        <div className="rounded-lg border border-slate-700/60 bg-slate-800/40 p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Alt Text</h4>
+                            <button
+                              onClick={() => handleCopy(displayData?.graphics?.suggested_alt_text ?? '', 'alt')}
+                              className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-indigo-400 transition-colors"
+                            >
+                              {copiedField === 'alt' ? <FiCheck size={10} /> : <FiCopy size={10} />}
+                            </button>
+                          </div>
+                          <p className="text-xs text-slate-400 italic">{displayData?.graphics?.suggested_alt_text ?? 'N/A'}</p>
+                        </div>
+                      </>
+                    )}
 
-                    {/* No images placeholder */}
-                    {(!Array.isArray(displayImages) || displayImages.length === 0) && (
+                    {/* No images placeholder (only when no standalone AND no pipeline images) */}
+                    {(!Array.isArray(displayImages) || displayImages.length === 0) && standaloneImages.length === 0 && !hasResults && (
                       <div className="rounded-lg border border-dashed border-slate-700 p-8 text-center">
                         <FiImage size={28} className="mx-auto text-slate-600 mb-2" />
                         <p className="text-sm text-slate-500">No generated images available</p>
-                        <p className="text-xs text-slate-600 mt-1">The graphics agent may not have produced artifact files for this request</p>
+                        <p className="text-xs text-slate-600 mt-1">Use the generator above or run the content pipeline to create images</p>
                       </div>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Export actions */}
-              <div className="px-5 py-3 border-t border-slate-800 flex gap-2">
-                <button
-                  onClick={() => handleCopy(displayData?.written_content?.content ?? '', 'content-bottom')}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-slate-700 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
-                >
-                  {copiedField === 'content-bottom' ? <><FiCheck size={13} /> Copied</> : <><FiCopy size={13} /> Copy Content</>}
-                </button>
-                <button
-                  onClick={downloadAll}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-xs font-medium text-indigo-300 hover:bg-indigo-600/30 transition-all"
-                >
-                  <FiDownload size={13} /> Download All
-                </button>
-              </div>
+              {/* Export actions - only when pipeline results exist */}
+              {hasResults && (
+                <div className="px-5 py-3 border-t border-slate-800 flex gap-2">
+                  <button
+                    onClick={() => handleCopy(displayData?.written_content?.content ?? '', 'content-bottom')}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-slate-700 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
+                  >
+                    {copiedField === 'content-bottom' ? <><FiCheck size={13} /> Copied</> : <><FiCopy size={13} /> Copy Content</>}
+                  </button>
+                  <button
+                    onClick={downloadAll}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-xs font-medium text-indigo-300 hover:bg-indigo-600/30 transition-all"
+                  >
+                    <FiDownload size={13} /> Download All
+                  </button>
+                </div>
+              )}
             </>
           )}
 
-          {/* Empty state when no results and not loading */}
-          {!loading && !hasResults && (
+          {/* Empty state when no results, no standalone images, and not loading */}
+          {!loading && !hasResults && standaloneImages.length === 0 && (
             <div className="hidden lg:flex flex-col items-center justify-center flex-1 p-8 text-center w-[520px]">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 flex items-center justify-center mb-4">
                 <FiZap size={24} className="text-indigo-500/50" />
               </div>
               <h3 className="text-base font-semibold text-slate-400 mb-1">Ready to Create</h3>
-              <p className="text-xs text-slate-600 max-w-xs">Fill out the content brief on the left and click "Create Marketing Content" to generate your full marketing package.</p>
-              <p className="text-[10px] text-slate-700 mt-3">Or toggle "Sample Data" to preview the output format</p>
+              <p className="text-xs text-slate-600 max-w-xs">Fill out the content brief on the left and click &quot;Create Marketing Content&quot; to generate your full marketing package.</p>
+              <p className="text-[10px] text-slate-700 mt-3">Or toggle &quot;Sample Data&quot; to preview the output format</p>
             </div>
           )}
         </aside>
