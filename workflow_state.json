@@ -1,0 +1,54 @@
+{
+  "app_name": "Marketing Team Hub",
+  "agents": {
+    "content_writer": {
+      "agent_id": "6991e141197e042c402253be",
+      "name": "Content Writer Agent",
+      "type": "sub-agent",
+      "model": "gpt-4.1",
+      "provider": "openai",
+      "capabilities": ["text"]
+    },
+    "seo_analyzer": {
+      "agent_id": "6991e14183535abf424bf43e",
+      "name": "SEO Analyzer Agent",
+      "type": "sub-agent",
+      "model": "claude-sonnet-4-5",
+      "provider": "anthropic",
+      "capabilities": ["text"]
+    },
+    "graphics_generator": {
+      "agent_id": "6991e1426a46d7921f7bf5a4",
+      "name": "Graphics Generator Agent",
+      "type": "sub-agent",
+      "model": "gpt-4.1",
+      "provider": "openai",
+      "capabilities": ["image"],
+      "image_output_config": {
+        "model": "gemini/gemini-3-pro-image-preview"
+      }
+    },
+    "marketing_coordinator": {
+      "agent_id": "6991e15a83535abf424bf440",
+      "name": "Marketing Coordinator",
+      "type": "manager",
+      "model": "gpt-4.1",
+      "provider": "openai",
+      "capabilities": ["text"],
+      "managed_agents": [
+        "6991e141197e042c402253be",
+        "6991e14183535abf424bf43e",
+        "6991e1426a46d7921f7bf5a4"
+      ]
+    }
+  },
+  "agent_ids": {
+    "content_writer_id": "6991e141197e042c402253be",
+    "seo_analyzer_id": "6991e14183535abf424bf43e",
+    "graphics_generator_id": "6991e1426a46d7921f7bf5a4",
+    "marketing_coordinator_id": "6991e15a83535abf424bf440"
+  },
+  "primary_agent_id": "6991e15a83535abf424bf440",
+  "workflow_pattern": "manager-subagent",
+  "created_at": "2026-02-15"
+}

@@ -1,0 +1,52 @@
+{
+  "nodes": [
+    {
+      "id": "input_node",
+      "type": "Input",
+      "label": "Marketing Brief",
+      "nodeCategory": "input"
+    },
+    {
+      "id": "marketing_coordinator",
+      "type": "Agent",
+      "label": "Marketing Coordinator",
+      "nodeCategory": "agent"
+    },
+    {
+      "id": "content_writer",
+      "type": "Agent",
+      "label": "Content Writer Agent",
+      "nodeCategory": "agent"
+    },
+    {
+      "id": "seo_analyzer",
+      "type": "Agent",
+      "label": "SEO Analyzer Agent",
+      "nodeCategory": "agent"
+    },
+    {
+      "id": "graphics_generator",
+      "type": "Agent",
+      "label": "Graphics Generator Agent",
+      "nodeCategory": "agent"
+    }
+  ],
+  "edges": [
+    {
+      "source": "input_node",
+      "target": "marketing_coordinator"
+    },
+    {
+      "source": "marketing_coordinator",
+      "target": "content_writer"
+    },
+    {
+      "source": "marketing_coordinator",
+      "target": "seo_analyzer"
+    },
+    {
+      "source": "marketing_coordinator",
+      "target": "graphics_generator"
+    }
+  ]
+}

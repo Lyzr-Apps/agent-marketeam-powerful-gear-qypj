@@ -1,0 +1,45 @@
+{
+  "agent_name": "Content Writer Agent",
+  "agent_id": "6991e141197e042c402253be",
+  "agent_type": "json",
+  "accessor": "json",
+  "has_module_outputs": false,
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "ContentWriterResponse",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Content title"
+          },
+          "content": {
+            "type": "string",
+            "description": "The full written content in markdown format"
+          },
+          "meta_description": {
+            "type": "string",
+            "description": "SEO meta description"
+          },
+          "word_count": {
+            "type": "number",
+            "description": "Word count of the content"
+          },
+          "content_type": {
+            "type": "string",
+            "description": "Type of content generated"
+          },
+          "summary": {
+            "type": "string",
+            "description": "Brief summary of the content"
+          }
+        },
+        "required": ["title", "content", "meta_description", "word_count", "content_type", "summary"],
+        "additionalProperties": false
+      }
+    }
+  }
+}

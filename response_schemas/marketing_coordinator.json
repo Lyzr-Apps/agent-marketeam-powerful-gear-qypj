@@ -1,0 +1,73 @@
+{
+  "agent_name": "Marketing Coordinator",
+  "agent_id": "6991e15a83535abf424bf440",
+  "agent_type": "json",
+  "accessor": "json",
+  "has_module_outputs": false,
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "MarketingCoordinatorResponse",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "project_title": {
+            "type": "string",
+            "description": "Title of the marketing project"
+          },
+          "content_brief_summary": {
+            "type": "string",
+            "description": "Summary of the original brief"
+          },
+          "written_content": {
+            "type": "object",
+            "properties": {
+              "title": { "type": "string" },
+              "content": { "type": "string" },
+              "meta_description": { "type": "string" },
+              "word_count": { "type": "number" },
+              "content_type": { "type": "string" },
+              "summary": { "type": "string" }
+            },
+            "required": ["title", "content", "meta_description", "word_count", "content_type", "summary"],
+            "additionalProperties": false
+          },
+          "seo_analysis": {
+            "type": "object",
+            "properties": {
+              "seo_score": { "type": "number" },
+              "keyword_analysis": { "type": "string" },
+              "readability_score": { "type": "string" },
+              "heading_structure": { "type": "string" },
+              "meta_description_quality": { "type": "string" },
+              "recommendations": { "type": "string" },
+              "content_length_assessment": { "type": "string" },
+              "improvement_summary": { "type": "string" }
+            },
+            "required": ["seo_score", "keyword_analysis", "readability_score", "heading_structure", "meta_description_quality", "recommendations", "content_length_assessment", "improvement_summary"],
+            "additionalProperties": false
+          },
+          "graphics": {
+            "type": "object",
+            "properties": {
+              "image_description": { "type": "string" },
+              "image_type": { "type": "string" },
+              "design_notes": { "type": "string" },
+              "suggested_alt_text": { "type": "string" },
+              "dimensions": { "type": "string" }
+            },
+            "required": ["image_description", "image_type", "design_notes", "suggested_alt_text", "dimensions"],
+            "additionalProperties": false
+          },
+          "status": {
+            "type": "string",
+            "description": "Overall status of the content package"
+          }
+        },
+        "required": ["project_title", "content_brief_summary", "written_content", "seo_analysis", "graphics", "status"],
+        "additionalProperties": false
+      }
+    }
+  }
+}

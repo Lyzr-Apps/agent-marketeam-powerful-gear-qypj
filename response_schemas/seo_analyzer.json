@@ -1,0 +1,53 @@
+{
+  "agent_name": "SEO Analyzer Agent",
+  "agent_id": "6991e14183535abf424bf43e",
+  "agent_type": "json",
+  "accessor": "json",
+  "has_module_outputs": false,
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "SEOAnalyzerResponse",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "seo_score": {
+            "type": "number",
+            "description": "Overall SEO score from 0-100"
+          },
+          "keyword_analysis": {
+            "type": "string",
+            "description": "Detailed keyword density and placement analysis"
+          },
+          "readability_score": {
+            "type": "string",
+            "description": "Readability assessment"
+          },
+          "heading_structure": {
+            "type": "string",
+            "description": "Analysis of heading hierarchy"
+          },
+          "meta_description_quality": {
+            "type": "string",
+            "description": "Meta description evaluation"
+          },
+          "recommendations": {
+            "type": "string",
+            "description": "Comma-separated list of actionable SEO recommendations prioritized by impact"
+          },
+          "content_length_assessment": {
+            "type": "string",
+            "description": "Whether content length is appropriate"
+          },
+          "improvement_summary": {
+            "type": "string",
+            "description": "Brief summary of key improvements needed"
+          }
+        },
+        "required": ["seo_score", "keyword_analysis", "readability_score", "heading_structure", "meta_description_quality", "recommendations", "content_length_assessment", "improvement_summary"],
+        "additionalProperties": false
+      }
+    }
+  }
+}

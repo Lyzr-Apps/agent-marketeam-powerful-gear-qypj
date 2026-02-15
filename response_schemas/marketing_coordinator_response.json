@@ -1,0 +1,76 @@
+{
+  "agent_name": "Marketing Coordinator",
+  "agent_id": "6991e15a83535abf424bf440",
+  "description": "Orchestrates content creation workflow, routes briefs to specialized agents, and aggregates final marketing package with written content, SEO recommendations, and graphics",
+  "agent_type": "json",
+  "accessor": "result",
+  "auto_generated": true,
+  "response_schema": {
+    "project_title": "string",
+    "content_brief_summary": "string",
+    "written_content": {
+      "title": "string",
+      "content": "string",
+      "meta_description": "string",
+      "word_count": "number",
+      "content_type": "string",
+      "summary": "string"
+    },
+    "seo_analysis": {
+      "seo_score": "number",
+      "keyword_analysis": "string",
+      "readability_score": "string",
+      "heading_structure": "string",
+      "meta_description_quality": "string",
+      "recommendations": "string",
+      "content_length_assessment": "string",
+      "improvement_summary": "string"
+    },
+    "graphics": {
+      "image_description": "string",
+      "image_type": "string",
+      "design_notes": "string",
+      "suggested_alt_text": "string",
+      "dimensions": "string"
+    },
+    "status": "string"
+  },
+  "example_response": {
+    "project_title": "Title of the marketing project",
+    "content_brief_summary": "Summary of the original brief",
+    "written_content": {
+      "title": "sample string",
+      "content": "sample string",
+      "meta_description": "sample string",
+      "word_count": 0,
+      "content_type": "sample string",
+      "summary": "sample string"
+    },
+    "seo_analysis": {
+      "seo_score": 0,
+      "keyword_analysis": "sample string",
+      "readability_score": "sample string",
+      "heading_structure": "sample string",
+      "meta_description_quality": "sample string",
+      "recommendations": "sample string",
+      "content_length_assessment": "sample string",
+      "improvement_summary": "sample string"
+    },
+    "graphics": {
+      "image_description": "sample string",
+      "image_type": "sample string",
+      "design_notes": "sample string",
+      "suggested_alt_text": "sample string",
+      "dimensions": "sample string"
+    },
+    "status": "Overall status of the content package"
+  },
+  "has_module_outputs": true,
+  "module_outputs_example": {
+    "artifact_files": [
+      {
+        "file_url": "https://example.com/image.png"
+      }
+    ]
+  }
+}

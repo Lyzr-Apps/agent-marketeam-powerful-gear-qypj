@@ -1,0 +1,44 @@
+{
+  "agent_name": "Graphics Generator Agent",
+  "agent_id": "6991e1426a46d7921f7bf5a4",
+  "agent_type": "json",
+  "accessor": "json",
+  "has_module_outputs": true,
+  "image_output_config": {
+    "model": "gemini/gemini-3-pro-image-preview"
+  },
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "GraphicsGeneratorResponse",
+      "strict": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "image_description": {
+            "type": "string",
+            "description": "Description of the generated image"
+          },
+          "image_type": {
+            "type": "string",
+            "description": "Type of image (blog header, social media, banner, etc.)"
+          },
+          "design_notes": {
+            "type": "string",
+            "description": "Notes about the design choices made"
+          },
+          "suggested_alt_text": {
+            "type": "string",
+            "description": "Suggested alt text for accessibility"
+          },
+          "dimensions": {
+            "type": "string",
+            "description": "Recommended dimensions for the image"
+          }
+        },
+        "required": ["image_description", "image_type", "design_notes", "suggested_alt_text", "dimensions"],
+        "additionalProperties": false
+      }
+    }
+  }
+}
