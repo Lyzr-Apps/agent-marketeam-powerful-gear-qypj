@@ -724,8 +724,8 @@ Please create a complete marketing content package including written content, SE
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden">
       {/* ---- LEFT SIDEBAR ---- */}
       <aside className="w-16 flex-shrink-0 bg-slate-900/80 border-r border-slate-800 flex flex-col items-center py-4 gap-2">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-4">
-          <FiZap size={16} className="text-white" />
+        <div className="w-9 h-9 rounded-lg overflow-hidden mb-4">
+          <img src="https://asset.lyzr.app/mEGKbXlt" alt="Lyzr" className="w-full h-full object-cover" />
         </div>
         <SidebarIcon icon={FiLayout} label="Dashboard" active={sidebarPage === 'dashboard'} onClick={() => setSidebarPage('dashboard')} />
         <SidebarIcon icon={FiClock} label="History" active={sidebarPage === 'history'} onClick={() => setSidebarPage('history')} />
